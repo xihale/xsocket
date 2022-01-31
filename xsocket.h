@@ -32,15 +32,15 @@
 #endif
 namespace xstd{
 namespace XSOCKET{
-    static SOCKET slisten;
-    static void xsocketInit(){
+	SOCKET slisten;
+	void xsocketInit(){
 #ifdef WIN32
 		WSADATA data;
 		if (WSAStartup(MAKEWORD(2,2), &data) != 0)
 			throw "WSA资源创建失败";
 #endif
 	}
-    static std::vector<std::string> getHostByName(std::string& name){
+	std::vector<std::string> getHostByName(std::string& name){
 	    struct hostent *host = gethostbyname(name.c_str());
 	    if(!host){
 	        throw "Get IP address error!";
@@ -59,11 +59,11 @@ namespace XSOCKET{
 	        hosts.push_back(inet_ntoa( *(struct in_addr*)host->h_addr_list[i]));
 	    return hosts;
 	}
-    static std::vector<std::string> getHostByName(const char* host){
+	std::vector<std::string> getHostByName(const char* host){
 		std::string _host(host);
 		return getHostByName(_host);
 	}
-    static void bind(int port,int mode=XSOCKET_TCP){
+	void bind(int port,int mode=XSOCKET_TCP){
 		sockaddr_in sin;
 		sin.sin_family = AF_INET;
 		sin.sin_port = htons(port);
@@ -90,106 +90,122 @@ class xsocket
 		xsocket(){}
 		xsocket(const char *str, int p){connect(str,p);};
 
-        void listen()
-        {
-            sockaddr_in remoteAddr;
-            socklen_t len=sizeof(remoteAddr);
-            Socket = accept(xstd::XSOCKET::slisten, (SOCKADDR*)&remoteAddr, &len);
-            if (Socket == INVALID_SOCKET)
-                throw "与客户端连接失败!";
-        }
+		void connect(std::string&, int, int=XSOCKET_TCP);
+		void connect(const char*,int, int=XSOCKET_TCP);
 
-        void connect(std::string& host, int port, int mode=XSOCKET_TCP)
-        {
-            sockaddr_in sin;
-            sin.sin_family = AF_INET;
-            sin.sin_port = htons(port);
-        #ifdef WIN32
-            sin.sin_addr.S_un.S_addr = inet_addr(host.c_str());
-        #else
-            sin.sin_addr.s_addr = inet_addr(host.c_str());
-        #endif
-            Socket = socket(AF_INET, SOCK_STREAM, mode);
-            if (Socket == INVALID_SOCKET)
-                throw "socket创建失败!";
-            unsigned short i;
-            for(i=0;i<3&&::connect(Socket, (sockaddr*)&sin, sizeof(sin)) == SOCKET_ERROR;++i)
-                Sleep(100); //每100ms重复连接服务器 默认尝试3次
-            if(i==3)throw "连接服务器失败!";
-        }
-        void connect(const char* host,int port,int mode=XSOCKET_TCP){
-            std::string Host(host);
-            connect(Host,port,mode);
-        }
+		void listen();
 
-        void send(const std::string val)
-        {
-            if(::send(Socket, val.c_str(), val.length(), 0)==-1)
-                throw "连接断开!";
-        }
+		void send(const std::string);
 
-        int read(std::string& str, int size)
-        {
-            char *in=new char[size+1];
-            int rev=0;
-            rev = recv(Socket, in, size, 0);
-            if (!((rev > 0) || ((rev == -1) && (Socket == EWOULDBLOCK))))
-                throw "连接断开!";
-            in[rev] = 0x00;
-            str = in;
-            delete[] in;
-            return rev;
-        }
-
-        int read(char *in,int size){
-            int rev = recv(Socket, in, size, 0);
-            in[rev] = 0x00;
-            if (!((rev > 0) || ((rev == -1) && (Socket == EWOULDBLOCK))))
-                throw "连接断开!";
-            return rev;
-        }
-
-        bool operator==(xsocket& a){
-            return a.Socket==Socket;
-        }
-        bool operator==(int a){
-            return a==int(Socket);
-        }
-        bool operator!=(xsocket& a){
-            return !(*this==a);
-        }
-        bool operator!=(int a){
-            return !(*this==a);
-        }
-        void close(){
-        #ifdef WIN32
-            closesocket(Socket);
-        #else
-            ::close(Socket);
-        #endif
-        }
+		int read(std::string&, int);
+		
+		int read(char *, int);
+		
+		void close();
+		
+		bool operator==(xsocket&);
+		bool operator==(int);
+		bool operator!=(xsocket&);
+		bool operator!=(int);
 
 	private:
 		SOCKET Socket;
 };
 }
 
+void xstd::xsocket::listen()
+{
+	sockaddr_in remoteAddr;
+	socklen_t len=sizeof(remoteAddr);
+	Socket = accept(xstd::XSOCKET::slisten, (SOCKADDR*)&remoteAddr, &len);
+	if (Socket == INVALID_SOCKET)
+		throw "与客户端连接失败!";
+}
 
-static xstd::xsocket& operator<<(xstd::xsocket& s,std::string& str){
+void xstd::xsocket::connect(std::string& host, int port, int mode)
+{
+	sockaddr_in sin;
+	sin.sin_family = AF_INET;
+	sin.sin_port = htons(port);
+#ifdef WIN32
+	sin.sin_addr.S_un.S_addr = inet_addr(host.c_str());
+#else
+	sin.sin_addr.s_addr = inet_addr(host.c_str());
+#endif
+	Socket = socket(AF_INET, SOCK_STREAM, mode);
+	if (Socket == INVALID_SOCKET)
+		throw "socket创建失败!";
+	unsigned short i;
+	for(i=0;i<3&&::connect(Socket, (sockaddr*)&sin, sizeof(sin)) == SOCKET_ERROR;++i)
+		Sleep(100); //每100ms重复连接服务器 默认尝试3次 
+	if(i==3)throw "连接服务器失败!";
+}
+void xstd::xsocket::connect(const char* host,int port,int mode){
+	std::string Host(host);
+	connect(Host,port,mode);
+}
+
+void xstd::xsocket::send(const std::string val)
+{
+	if(::send(Socket, val.c_str(), val.length(), 0)==-1)
+		throw "连接断开!";
+}
+
+int xstd::xsocket::read(std::string& str, int size)
+{
+	char *in=new char[size+1];
+	int rev=0;
+	rev = recv(Socket, in, size, 0);
+	if (!((rev > 0) || ((rev == -1) && (Socket == EWOULDBLOCK))))
+		throw "连接断开!";
+	in[rev] = 0x00;
+	str = in;
+	delete[] in;
+	return rev;
+}
+
+int xstd::xsocket::read(char *in,int size){
+	int rev = recv(Socket, in, size, 0);
+	in[rev] = 0x00;
+	if (!((rev > 0) || ((rev == -1) && (Socket == EWOULDBLOCK))))
+		throw "连接断开!";
+	return rev;
+}
+
+bool xstd::xsocket::operator==(xsocket& a){
+	return a.Socket==Socket;
+}
+bool xstd::xsocket::operator==(int a){
+	return a==int(Socket);
+}
+bool xstd::xsocket::operator!=(xsocket& a){
+	return !(*this==a);
+}
+bool xstd::xsocket::operator!=(int a){
+	return !(*this==a);
+}
+xstd::xsocket& operator<<(xstd::xsocket& s,std::string& str){
 	s.send(str);
 	// Sleep(100); //缓冲
 	return s;
 }
-static xstd::xsocket& operator<<(xstd::xsocket& s,const char* str){
+xstd::xsocket& operator<<(xstd::xsocket& s,const char* str){
 	s.send(str);
 	return s;
 }
-static xstd::xsocket& operator>>(xstd::xsocket& s,std::string& str){
+xstd::xsocket& operator>>(xstd::xsocket& s,std::string& str){
 	s.read(str,READ_MAX_SIZE);
 	return s;
 }
-static xstd::xsocket& operator>>(xstd::xsocket& s,char *str){
+xstd::xsocket& operator>>(xstd::xsocket& s,char *str){
 	s.read(str,READ_MAX_SIZE);
 	return s;
+}
+void xstd::xsocket::close(){
+#ifdef WIN32
+	closesocket(Socket);
+#else
+	::close(Socket);
+#endif
 }
 #endif
