@@ -1,5 +1,5 @@
 #include <iostream>
-#include "../xsocket.h" //声明库
+#include "../xsocket.hpp" //声明库
 using namespace std;
 using namespace xstd;
 using namespace xstd::XSOCKET;

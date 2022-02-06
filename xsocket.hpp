@@ -1,5 +1,5 @@
-#ifndef XSOCKET_H
-#define XSOCKET_H
+#ifndef XSOCKET_HPP
+#define XSOCKET_HPP
 
 #include <iostream>
 #include <stdexcept> //try catch
